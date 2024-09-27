@@ -1,0 +1,13 @@
+[build]
+    edge_functions = "netlify/edge-functions"
+    command = "echo no build"
+
+[[redirects]]
+    from = "/docs/*"
+    to = "/docs/:splat"
+    status = 200
+    force = true
+[context.production.environment]
+LATEST_VERSION="14.5"
+[context.dev.environment]
+LATEST_VERSION="14.5"

@@ -5,6 +5,8 @@ const execa = require('execa');
 const MULTI_FRAMEWORKED_CONTENT_DIR = '.build-tmp';
 const FRAMEWORK_SUFFIX = '-data-grid';
 const versionFromBranchRegExp = /^prod-docs\/(\d+\.\d+)$/;
+const branchDev = /^feature\/dev-issue-1790$/;
+const branchProdDocsLatestRegexp = /^prod-docs\/latest$/;
 let docsVersion = null;
 let docsSHA = null;
 
@@ -57,10 +59,23 @@ function getPrettyFrameworkName(framework) {
  */
 function getThisDocsVersion() {
   if (docsVersion === null) {
+
     const branchName = execa.sync('git rev-parse --abbrev-ref HEAD', { shell: true }).stdout;
 
-    if (versionFromBranchRegExp.test(branchName)) {
+    if (versionFromBranchRegExp.test(branchName) === true) {
       docsVersion = branchName.match(versionFromBranchRegExp)[1];
+    } else if (branchDev.test(branchName) || branchProdDocsLatestRegexp.test(branchName) === true) {
+
+      const allRemoteBranches = execa.sync('git ls-remote --heads origin ', { shell: true }).stdout;
+      const versionsFound = allRemoteBranches.split('\n')
+        .filter(item => item.includes('prod-docs'))
+        // avoids the case when the branch is named `prod-docs/latest`
+        .filter(item => item.match(/\d+\.\d+/))
+        .map(item => item.match(/\d+\.\d+/)[0]);
+
+      const maximumVersionFound = Math.max(...versionsFound);
+
+      docsVersion = maximumVersionFound.toString();
     } else {
       docsVersion = 'next';
     }
@@ -263,9 +278,8 @@ function getDocsBaseFullUrl() {
 /**
  * Gets docs hostname (eq: https://handsontable.com).
  *
- * @param {boolean} [allowLocalhost=true] Returns localhost URL for local testing or official Docs domains as
- *                                        a source of truth for further "fetch" requests.
- * @returns {string}
+ * @param {boolean} [allowLocalhost=true] Returns true if NETLIFY environment variable was set to true.
+ * @returns {boolean}
  */
 function getDocsHostname(allowLocalhost = true) {
   const buildMode = process.env.BUILD_MODE;
